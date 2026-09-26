@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790379391144,
+      "tag": "0000_stokvel_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790380219215,
+      "tag": "0001_create_offers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790383029218,
+      "tag": "0002_tighten_update_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790385649175,
+      "tag": "0003_stokvel_invite_codes",
+      "breakpoints": true
+    }
+  ]
+}

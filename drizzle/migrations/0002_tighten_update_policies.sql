@@ -1,0 +1,4 @@
+ALTER POLICY "Admins update contributions" ON public.contributions USING (public.is_stokvel_admin(stokvel_id)) WITH CHECK (public.is_stokvel_admin(stokvel_id));
+ALTER POLICY "Admins edit members" ON public.members USING (public.is_stokvel_admin(stokvel_id)) WITH CHECK (public.is_stokvel_admin(stokvel_id));
+ALTER POLICY "Admins update stokvel" ON public.stokvels USING (public.is_stokvel_admin(id)) WITH CHECK (public.is_stokvel_admin(id));
+ALTER POLICY "Users mark own notifications read" ON public.notifications USING (EXISTS (SELECT 1 FROM public.members m WHERE m.id = notifications.member_id AND m.auth_user_id = auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.members m WHERE m.id = notifications.member_id AND m.auth_user_id = auth.uid()));
