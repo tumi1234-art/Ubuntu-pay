@@ -1,10 +1,11 @@
-import { Home, Users, Banknote, BarChart3, Settings as SettingsIcon } from "lucide-react";
+import { Home, Users, Banknote, Store, BarChart3, Settings as SettingsIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const tabs = [
   { path: "/", label: "Home", icon: Home },
   { path: "/members", label: "Members", icon: Users },
-  { path: "/contributions", label: "Pay", icon: Banknote },
+  { path: "/contribute", label: "Pay", icon: Banknote },
+  { path: "/merchants", label: "Offers", icon: Store },
   { path: "/reports", label: "Reports", icon: BarChart3 },
   { path: "/settings", label: "Settings", icon: SettingsIcon },
 ];

@@ -29,6 +29,7 @@ export type Database = {
           status: string
           stokvel_id: string
           verdict: string | null
+          verification: Json | null
         }
         Insert: {
           amount: number
@@ -44,6 +45,7 @@ export type Database = {
           status?: string
           stokvel_id: string
           verdict?: string | null
+          verification?: Json | null
         }
         Update: {
           amount?: number
@@ -59,6 +61,7 @@ export type Database = {
           status?: string
           stokvel_id?: string
           verdict?: string | null
+          verification?: Json | null
         }
         Relationships: [
           {
@@ -243,6 +246,9 @@ export type Database = {
           name: string
           next_contribution: string | null
           payout_cycle: string
+          target_amount: number
+          target_date: string | null
+          timeframe_months: number
         }
         Insert: {
           balance?: number
@@ -256,6 +262,9 @@ export type Database = {
           name: string
           next_contribution?: string | null
           payout_cycle?: string
+          target_amount?: number
+          target_date?: string | null
+          timeframe_months?: number
         }
         Update: {
           balance?: number
@@ -269,6 +278,9 @@ export type Database = {
           name?: string
           next_contribution?: string | null
           payout_cycle?: string
+          target_amount?: number
+          target_date?: string | null
+          timeframe_months?: number
         }
         Relationships: []
       }
@@ -322,7 +334,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_confirm_contribution: { Args: { _id: string }; Returns: undefined }
       confirm_contribution: { Args: { _id: string }; Returns: undefined }
+      create_savings_group: {
+        Args: {
+          _contribution: number
+          _member_name: string
+          _name: string
+          _target: number
+          _timeframe_months: number
+        }
+        Returns: string
+      }
       create_stokvel: {
         Args: {
           _amount: number

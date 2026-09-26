@@ -2,3 +2,18 @@ project_id = "hwmhxfvytmehkkgdrfrh"
 
 [functions.verify-receipt]
 verify_jwt = false
+
+[functions.create-group]
+verify_jwt = false
+
+[functions.join-group]
+verify_jwt = false
+
+[functions.group-dashboard]
+verify_jwt = false
+
+[functions.submit-contribution]
+verify_jwt = false
+
+[functions.contribution-history]
+verify_jwt = false

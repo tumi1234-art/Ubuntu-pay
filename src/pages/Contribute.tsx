@@ -54,10 +54,12 @@ const Contribute = () => {
   const { membership } = useMe();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
+  const [image, setImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const [reference, setReference] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<"pending" | "confirmed" | null>(null);
 
   const onPick = (f: File | null) => {
     if (!f) return;
@@ -71,6 +73,7 @@ const Contribute = () => {
     }
     setFile(f);
     setResult(null);
+    setImage(null);
     setPreview(URL.createObjectURL(f));
   };
 
@@ -83,6 +86,7 @@ const Contribute = () => {
     setResult(null);
     try {
       const { base64, mimeType } = await fileToBase64(file);
+      setImage({ base64, mimeType });
       const { data, error } = await supabase.functions.invoke("verify-receipt", {
         body: { imageBase64: base64, mimeType, expectedReference: reference || undefined },
       });
@@ -104,14 +108,28 @@ const Contribute = () => {
     if (!membership) { toast({ title: "Join a stokvel first", variant: "destructive" }); return; }
     const amount = Number(String(result.amount || "0").replace(/[^\d.]/g, ""));
     if (!amount) { toast({ title: "No amount found on receipt", variant: "destructive" }); return; }
-    const { error } = await supabase.from("contributions").insert({
-      member_id: membership.id, stokvel_id: membership.stokvel_id, amount,
-      reference: result.reference || reference || null,
-      verdict: result.verdict, confidence: result.confidence, red_flags: result.red_flags ?? [],
+    if (!image) { toast({ title: "Receipt image missing — please re-upload", variant: "destructive" }); return; }
+    setSubmitting(true);
+    const { data, error } = await supabase.functions.invoke("submit-contribution", {
+      body: {
+        group_id: membership.stokvel_id, amount,
+        imageBase64: image.base64, mimeType: image.mimeType,
+        reference: result.reference || reference || undefined,
+      },
     });
-    if (error) { toast({ title: "Could not save", description: error.message, variant: "destructive" }); return; }
-    setSubmitted(true);
-    toast({ title: "Contribution submitted", description: `R ${amount} saved — awaiting admin confirmation.` });
+    setSubmitting(false);
+    if (error || (data as any)?.error) {
+      toast({ title: "Could not save", description: (data as any)?.error || error?.message, variant: "destructive" });
+      return;
+    }
+    const status = (data as any)?.status === "confirmed" ? "confirmed" : "pending";
+    setSubmitted(status);
+    toast({
+      title: status === "confirmed" ? "Contribution confirmed!" : "Contribution submitted",
+      description: status === "confirmed"
+        ? `R ${amount} verified by AI and added to the group balance.`
+        : `R ${amount} saved — awaiting admin confirmation.`,
+    });
   };
 
   if (submitted) {
@@ -119,12 +137,16 @@ const Contribute = () => {
       <div className="min-h-screen bg-background max-w-md mx-auto relative flex flex-col items-center justify-center px-5">
         <div className="text-center space-y-4">
           <CheckCircle className="w-16 h-16 text-primary mx-auto" />
-          <h2 className="text-xl font-bold">Contribution Submitted!</h2>
+          <h2 className="text-xl font-bold">{submitted === "confirmed" ? "Contribution Confirmed!" : "Contribution Submitted!"}</h2>
           {result?.amount && <p className="text-muted-foreground">R {result.amount} has been recorded.</p>}
           {result?.reference && <p className="text-sm text-muted-foreground">Ref: {result.reference}</p>}
-          <p className="text-xs text-muted-foreground">Awaiting admin confirmation.</p>
+          <p className="text-xs text-muted-foreground">
+            {submitted === "confirmed"
+              ? "AI verified your receipt as genuine — the group balance is already updated."
+              : "Awaiting admin confirmation."}
+          </p>
           <div className="flex gap-3 pt-4 justify-center">
-            <Button variant="outline" onClick={() => { setSubmitted(false); setFile(null); setPreview(""); setResult(null); setReference(""); }}>
+            <Button variant="outline" onClick={() => { setSubmitted(null); setFile(null); setPreview(""); setImage(null); setResult(null); setReference(""); }}>
               New contribution
             </Button>
             <Button onClick={() => navigate("/")}>Back home</Button>
@@ -222,9 +244,9 @@ const Contribute = () => {
               className="w-full"
               variant={result.verdict === "genuine" ? "default" : "outline"}
               onClick={submit}
-              disabled={result.verdict === "fake" || result.verdict === "not_a_receipt"}
+              disabled={submitting || result.verdict === "fake" || result.verdict === "not_a_receipt"}
             >
-              Submit contribution
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : "Submit contribution"}
             </Button>
           </Card>
         )}

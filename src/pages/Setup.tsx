@@ -18,6 +18,7 @@ const Setup = () => {
   const [myName, setMyName] = useState((session?.user.user_metadata?.full_name as string) || "");
   const [amount, setAmount] = useState("1000");
   const [target, setTarget] = useState("12000");
+  const [months, setMonths] = useState("12");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"create" | "join">("create");
   const [code, setCode] = useState("");
@@ -26,9 +27,11 @@ const Setup = () => {
     e.preventDefault();
     if (!code || !myName) { toast({ title: "Enter your name and invite code", variant: "destructive" }); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("join_stokvel", { _code: code, _member_name: myName });
+    const { data, error } = await supabase.functions.invoke("join-group", {
+      body: { invite_code: code, member_name: myName },
+    });
     setBusy(false);
-    if (error) { toast({ title: "Could not join", description: error.message, variant: "destructive" }); return; }
+    if (error || (data as any)?.error) { toast({ title: "Could not join", description: (data as any)?.error || error?.message, variant: "destructive" }); return; }
     await qc.invalidateQueries({ queryKey: ["membership"] });
     toast({ title: "Welcome to your stokvel!" });
     navigate("/");
@@ -38,12 +41,15 @@ const Setup = () => {
     e.preventDefault();
     if (!name || !myName) { toast({ title: "Please fill in the names", variant: "destructive" }); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("create_stokvel", {
-      _name: name, _amount: Number(amount), _target: Number(target),
-      _member_name: myName || session?.user.user_metadata?.full_name || "Admin",
+    const { data, error } = await supabase.functions.invoke("create-group", {
+      body: {
+        name, target_amount: Number(target), timeframe_months: Number(months),
+        contribution_amount: Number(amount),
+        member_name: myName || session?.user.user_metadata?.full_name || "Admin",
+      },
     });
     setBusy(false);
-    if (error) { toast({ title: "Could not create stokvel", description: error.message, variant: "destructive" }); return; }
+    if (error || (data as any)?.error) { toast({ title: "Could not create stokvel", description: (data as any)?.error || error?.message, variant: "destructive" }); return; }
     await qc.invalidateQueries({ queryKey: ["membership"] });
     toast({ title: "Your stokvel is now active" });
     navigate("/");
@@ -79,8 +85,9 @@ const Setup = () => {
           <div><Label>Stokvel name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Kasi Savings Club" className="mt-1.5" /></div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Monthly amount (R)</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1.5" /></div>
-            <div><Label>Monthly target (R)</Label><Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1.5" /></div>
+            <div><Label>Timeframe (months)</Label><Input type="number" min={1} max={120} value={months} onChange={(e) => setMonths(e.target.value)} className="mt-1.5" /></div>
           </div>
+          <div><Label>Savings target (R)</Label><Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1.5" /></div>
           <Button type="submit" className="w-full h-12" disabled={busy}>{busy ? "Creating…" : "Create stokvel"}</Button>
           <Button type="button" variant="ghost" className="w-full" onClick={() => supabase.auth.signOut().then(() => navigate("/login"))}>Sign out</Button>
         </form>

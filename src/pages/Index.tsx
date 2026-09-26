@@ -27,8 +27,26 @@ const Index = () => {
   const user = membership
     ? { ...localUser, name: membership.name, initials: membership.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") }
     : localUser;
+
+  // Group dashboard from the backend function (saved, target, progress %, member count)
+  const { data: dash } = useQuery({
+    queryKey: ["group-dashboard", stokvelId],
+    enabled: !!stokvelId,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("group-dashboard", {
+        body: { group_id: stokvelId },
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+      return data as {
+        name: string; saved_amount: number; target_amount: number;
+        progress_percent: number; member_count: number;
+        timeframe_months: number; target_date: string | null;
+      };
+    },
+  });
+
   const stokvel = s
-    ? { ...localStokvel, name: s.name, balance: Number(s.balance), monthlyTarget: Number(s.monthly_target) || 1, contributionAmount: Number(s.contribution_amount) }
+    ? { ...localStokvel, name: dash?.name ?? s.name, balance: dash ? Number(dash.saved_amount) : Number(s.balance), monthlyTarget: Number(s.monthly_target) || 1, contributionAmount: Number(s.contribution_amount) }
     : localStokvel;
 
   // Real dashboard stats for this stokvel
@@ -73,7 +91,7 @@ const Index = () => {
 
   // Fallback to sample data only when not signed into a stokvel
   const paid = usingReal ? stats!.paid : mockMembers.filter((m) => m.paidThisMonth).length;
-  const memberCount = usingReal ? stats!.memberCount : mockMembers.length;
+  const memberCount = dash ? dash.member_count : usingReal ? stats!.memberCount : mockMembers.length;
   const unpaid = memberCount - paid;
   const monthlyCollected = usingReal ? stats!.collected : localStokvel.monthlyCollected;
   const monthlyPct = (monthlyCollected / stokvel.monthlyTarget) * 100;
@@ -149,10 +167,17 @@ const Index = () => {
             </div>
             <p className="font-display text-4xl font-bold tracking-tight mt-2">{formatZAR(isAdmin ? stokvel.balance : myTotal)}</p>
             {isAdmin ? (
-              <>
-                <div className="flex justify-between text-[11px] opacity-90 mt-3 mb-1"><span>This month {formatZAR(monthlyCollected)}</span><span>Target {formatZAR(stokvel.monthlyTarget)}</span></div>
-                <div className="h-2 rounded-full bg-primary-foreground/25 overflow-hidden"><div className="h-full bg-primary-foreground rounded-full" style={{ width: `${Math.min(100, monthlyPct)}%` }} /></div>
-              </>
+              dash && dash.target_amount > 0 ? (
+                <>
+                  <div className="flex justify-between text-[11px] opacity-90 mt-3 mb-1"><span>Saved {formatZAR(dash.saved_amount)}</span><span>Goal {formatZAR(dash.target_amount)} • {dash.progress_percent}%</span></div>
+                  <div className="h-2 rounded-full bg-primary-foreground/25 overflow-hidden"><div className="h-full bg-primary-foreground rounded-full" style={{ width: `${Math.min(100, dash.progress_percent)}%` }} /></div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-[11px] opacity-90 mt-3 mb-1"><span>This month {formatZAR(monthlyCollected)}</span><span>Target {formatZAR(stokvel.monthlyTarget)}</span></div>
+                  <div className="h-2 rounded-full bg-primary-foreground/25 overflow-hidden"><div className="h-full bg-primary-foreground rounded-full" style={{ width: `${Math.min(100, monthlyPct)}%` }} /></div>
+                </>
+              )
             ) : (
               <p className="text-xs opacity-90 mt-1 flex items-center gap-1"><TrendingUp className="w-3 h-3" />{myContribs.length} payments to date</p>
             )}
