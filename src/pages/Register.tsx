@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,13 @@ import ubuntuPayLogo from "@/assets/ubuntupay-logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+const registrationSchema = z.object({
+  name: z.string().trim().min(1, "Please enter your full name.").max(100, "Name must be 100 characters or fewer."),
+  email: z.string().trim().email("Please enter a valid email address.").max(255, "Email must be 255 characters or fewer."),
+  phone: z.string().trim().max(30, "Phone number must be 30 characters or fewer."),
+  password: z.string().min(8, "Password needs at least 8 characters.").max(128, "Password must be 128 characters or fewer."),
+});
+
 const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -17,25 +25,56 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"admin" | "member">("admin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!name || !email || password.length < 8) {
-      toast({ title: "Please complete all fields", description: "Password needs at least 8 characters.", variant: "destructive" });
-      return;
-    }
-    const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: `${window.location.origin}/`, data: { full_name: name, phone, role } },
+    if (isSubmitting) return;
+
+    const form = e.currentTarget;
+    const fields = form.elements;
+    const readField = (fieldName: string, fallback: string) => {
+      const field = fields.namedItem(fieldName);
+      return field instanceof HTMLInputElement ? field.value : fallback;
+    };
+    const result = registrationSchema.safeParse({
+      name: readField("name", name),
+      email: readField("email", email),
+      phone: readField("phone", phone),
+      password: passwordRef.current?.value ?? readField("password", password),
     });
-    if (error) { toast({ title: "Sign up failed", description: error.message, variant: "destructive" }); return; }
-    if (!data.session) {
-      toast({ title: "Check your email", description: "Tap the link we sent to confirm your account, then sign in." });
-      navigate("/login");
+
+    if (!result.success) {
+      const issue = result.error.issues[0];
+      toast({ title: "Check your details", description: issue?.message ?? "Please check the form and try again.", variant: "destructive" });
       return;
     }
-    toast({ title: "Account created!", description: "Let's set up your stokvel." });
-    navigate("/setup");
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: result.data.email,
+        password: result.data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: { full_name: result.data.name, phone: result.data.phone, role },
+        },
+      });
+      if (error) {
+        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (!data.session) {
+        toast({ title: "Check your email", description: "Tap the link we sent to confirm your account, then sign in." });
+        navigate("/login");
+        return;
+      }
+      toast({ title: "Account created!", description: "Let's set up your stokvel." });
+      navigate("/setup");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -56,19 +95,19 @@ const Register = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="name" className="text-sm">Full name</Label>
-              <Input id="name" placeholder="Thabo Mokoena" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5" />
+              <Input id="name" name="name" autoComplete="name" maxLength={100} required placeholder="Thabo Mokoena" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="email" className="text-sm">Email</Label>
-              <Input id="email" type="email" placeholder="you@example.co.za" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" />
+              <Input id="email" name="email" type="email" autoComplete="email" maxLength={255} required placeholder="you@example.co.za" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="phone" className="text-sm">Phone</Label>
-              <Input id="phone" type="tel" placeholder="+27 82 555 0142" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5" />
+              <Input id="phone" name="phone" type="tel" autoComplete="tel" maxLength={30} placeholder="+27 82 555 0142" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="pwd" className="text-sm">Password</Label>
-              <Input id="pwd" type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1.5" />
+              <Input ref={passwordRef} id="password" name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1.5" />
             </div>
 
             <div>
@@ -95,7 +134,9 @@ const Register = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11">Create account</Button>
+            <Button type="submit" disabled={isSubmitting} className="w-full h-11">
+              {isSubmitting ? "Creating account…" : "Create account"}
+            </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">

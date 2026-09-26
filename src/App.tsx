@@ -31,6 +31,7 @@ import Governance from "./pages/Governance.tsx";
 import Voting from "./pages/Voting.tsx";
 import UploadReceipt from "./pages/UploadReceipt.tsx";
 import Setup from "./pages/Setup.tsx";
+import Demo from "./pages/Demo.tsx";
 import { RequireAuth } from "@/lib/auth";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/otp" element={<OTP />} />
+          <Route path="/demo" element={<Demo />} />
           <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
           <Route path="/members" element={<RequireAuth><Members /></RequireAuth>} />
           <Route path="/contributions" element={<RequireAuth><Contributions /></RequireAuth>} />
